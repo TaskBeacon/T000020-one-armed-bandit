@@ -5,9 +5,9 @@ All notable development changes for `T000020-one-armed-bandit` are documented he
 ## [Unreleased]
 
 ### Changed
-- Refactored `src/utils.py`: Renamed `Controller` to `AdaptiveController` (focused on adaptive RT control) and introduced `RewardTracker` for separate scoring logic.
-- Refactored `src/run_trial.py` to contain logic for a single trial, aligned with `task_logic_audit.md`.
-- Updated `main.py` to move block-level probability generation out of the controller.
+- Refactored `src/utils.py`: Removed adaptive RT logic; introduced `RewardTracker` for separate scoring logic and moved static schedule generation to `generate_bandit_schedule`.
+- Refactored `src/run_trial.py` to contain logic for a single trial with fixed durations, aligned with `task_logic_audit.md`.
+- Updated `main.py` to use `RewardTracker` and fixed-period trial flow.
 
 ## [0.2.1-dev] - 2026-02-19
 

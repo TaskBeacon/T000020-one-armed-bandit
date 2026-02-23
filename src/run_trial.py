@@ -9,7 +9,6 @@ def run_trial(
     settings,
     condition,
     stim_bank,
-    controller, # AdaptiveController for RT
     reward_tracker, # RewardTracker
     trigger_runtime,
     block_id=None,
@@ -52,8 +51,8 @@ def run_trial(
         onset_trigger=settings.triggers.get("pre_choice_fixation_onset"),
     ).to_dict(trial_data)
 
-    # Phase 2: bandit_choice (Adaptive Deadline)
-    decision_duration = controller.get_duration()
+    # Phase 2: bandit_choice (Fixed Duration)
+    decision_duration = float(getattr(settings, "bandit_choice_duration", 2.5))
     choice = (
         make_unit(unit_label="anticipation")
         .add_stim(stim_bank.get("machine_left"))
@@ -100,9 +99,6 @@ def run_trial(
     resp_key = choice.get_state("response", None)
     choice_made = resp_key in (left_key, right_key)
     
-    # Update Adaptive Controller (RT control)
-    controller.update(hit=choice_made)
-
     choice_forced = False
     if not choice_made:
         resp_key = get_fallback_choice(

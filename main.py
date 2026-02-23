@@ -20,7 +20,7 @@ from psyflow import (
     runtime_context,
 )
 
-from src import AdaptiveController, RewardTracker, generate_bandit_schedule, run_trial
+from src import RewardTracker, generate_bandit_schedule, run_trial
 
 
 def _make_qa_trigger_runtime():
@@ -103,10 +103,7 @@ def _run_impl(*, mode: str, output_dir: Path | None, cfg: dict, participant_id: 
         stim_bank = stim_bank.convert_to_voice("instruction_text")
     stim_bank = stim_bank.preload_all()
 
-    # 7. Setup controller across blocks
-    settings.controller = cfg["controller_config"]
-    settings.save_to_json()
-    controller = AdaptiveController.from_dict(settings.controller)
+    # 7. Setup tracker across blocks
     reward_tracker = RewardTracker()
 
     trigger_runtime.send(settings.triggers.get("exp_onset"))
@@ -147,7 +144,6 @@ def _run_impl(*, mode: str, output_dir: Path | None, cfg: dict, participant_id: 
                     partial(
                         run_trial,
                         stim_bank=stim_bank,
-                        controller=controller,
                         reward_tracker=reward_tracker,
                         trigger_runtime=trigger_runtime,
                         block_id=f"block_{block_i}",
