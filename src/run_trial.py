@@ -1,53 +1,7 @@
 from __future__ import annotations
-
 from functools import partial
-from typing import Any
-
-from psyflow import StimUnit, set_trial_context
-from psyflow.sim import get_context
-
-# run_trial uses task-specific phase labels via set_trial_context(...).
-
-
-def _qa_scale_duration(duration_s: float, win) -> float:
-    base = max(0.0, float(duration_s))
-    ctx = get_context()
-    if ctx is None or not ctx.config.enable_scaling:
-        return base
-    frame = float(getattr(win, "monitorFramePeriod", 1.0 / 60.0) or (1.0 / 60.0))
-    min_frames = int(max(1, ctx.config.min_frames))
-    scaled = base * float(ctx.config.timing_scale)
-    return max(scaled, frame * min_frames)
-
-
-def _next_trial_id(controller) -> int:
-    return int(getattr(controller, "completed_trials", 0)) + 1
-
-
-def _parse_condition(condition: Any) -> tuple[float, float, str]:
-    if isinstance(condition, dict):
-        p_left = float(condition.get("p_left", 0.5))
-        p_right = float(condition.get("p_right", 0.5))
-        condition_id = str(
-            condition.get(
-                "condition_id",
-                f"L{int(round(p_left * 100)):02d}_R{int(round(p_right * 100)):02d}",
-            )
-        )
-        return p_left, p_right, condition_id
-
-    if isinstance(condition, (tuple, list)) and len(condition) >= 2:
-        p_left = float(condition[0])
-        p_right = float(condition[1])
-        condition_id = f"L{int(round(p_left * 100)):02d}_R{int(round(p_right * 100)):02d}"
-        return p_left, p_right, condition_id
-
-    raise ValueError(f"Unsupported one-armed bandit condition format: {condition!r}")
-
-
-def _fmt_pct(value: float) -> str:
-    return f"{int(round(max(0.0, min(1.0, float(value))) * 100))}%"
-
+from psyflow import StimUnit, set_trial_context, next_trial_id
+from .utils import draw_bandit_reward, get_fallback_choice
 
 def run_trial(
     win,
@@ -55,16 +9,20 @@ def run_trial(
     settings,
     condition,
     stim_bank,
-    controller,
+    controller, # AdaptiveController for RT
+    reward_tracker, # RewardTracker
     trigger_runtime,
     block_id=None,
     block_idx=None,
 ):
     """Run one one-armed-bandit trial."""
-    trial_id = _next_trial_id(controller)
-    p_left, p_right, condition_id = _parse_condition(condition)
+    trial_id = next_trial_id()
+    # condition is (p_left, p_right)
+    p_left, p_right = float(condition[0]), float(condition[1])
+    cond_id = f"L{int(round(p_left * 100)):02d}_R{int(round(p_right * 100)):02d}"
+    
     trial_data = {
-        "condition": condition_id,
+        "condition": cond_id,
         "p_left": p_left,
         "p_right": p_right,
     }
@@ -72,33 +30,30 @@ def run_trial(
 
     left_key = str(getattr(settings, "left_key", "f"))
     right_key = str(getattr(settings, "right_key", "j"))
-    reward_win_value = int(getattr(settings, "reward_win", 10))
-    reward_loss_value = int(getattr(settings, "reward_loss", 0))
+    reward_win_val = int(getattr(settings, "reward_win", 10))
+    reward_loss_val = int(getattr(settings, "reward_loss", 0))
 
-    # phase: pre_choice_fixation
+    # Phase 1: pre_choice_fixation
+    duration = float(getattr(settings, "pre_choice_fixation_duration", 0.5))
     cue = make_unit(unit_label="cue").add_stim(stim_bank.get("fixation"))
     set_trial_context(
         cue,
         trial_id=trial_id,
         phase="pre_choice_fixation",
-        deadline_s=_qa_scale_duration(float(settings.cue_duration), win),
+        deadline_s=duration,
         valid_keys=[],
         block_id=block_id,
-        condition_id=condition_id,
-        task_factors={
-            "stage": "pre_choice_fixation",
-            "p_left": p_left,
-            "p_right": p_right,
-            "block_idx": block_idx,
-        },
+        condition_id=cond_id,
+        task_factors={"stage": "pre_choice_fixation", "block_idx": block_idx},
         stim_id="fixation",
     )
     cue.show(
-        duration=float(settings.cue_duration),
-        onset_trigger=settings.triggers.get("cue_onset"),
+        duration=duration,
+        onset_trigger=settings.triggers.get("pre_choice_fixation_onset"),
     ).to_dict(trial_data)
 
-    # phase: bandit_choice
+    # Phase 2: bandit_choice (Adaptive Deadline)
+    decision_duration = controller.get_duration()
     choice = (
         make_unit(unit_label="anticipation")
         .add_stim(stim_bank.get("machine_left"))
@@ -108,9 +63,7 @@ def run_trial(
         .add_stim(
             stim_bank.get_and_format(
                 "choice_prompt",
-                left_key=left_key.upper(),
-                right_key=right_key.upper(),
-                deadline_s=f"{float(settings.anticipation_duration):.1f}",
+                deadline_s=f"{decision_duration:.1f}",
             )
         )
     )
@@ -119,16 +72,14 @@ def run_trial(
         choice,
         trial_id=trial_id,
         phase="bandit_choice",
-        deadline_s=_qa_scale_duration(float(settings.anticipation_duration), win),
+        deadline_s=decision_duration,
         valid_keys=[left_key, right_key],
         block_id=block_id,
-        condition_id=condition_id,
+        condition_id=cond_id,
         task_factors={
             "stage": "bandit_choice",
             "p_left": p_left,
             "p_right": p_right,
-            "left_key": left_key,
-            "right_key": right_key,
             "block_idx": block_idx,
         },
         stim_id="bandit_choice",
@@ -137,43 +88,46 @@ def run_trial(
     choice.capture_response(
         keys=[left_key, right_key],
         correct_keys=[left_key, right_key],
-        duration=float(settings.anticipation_duration),
-        onset_trigger=settings.triggers.get("choice_onset"),
+        duration=decision_duration,
+        onset_trigger=settings.triggers.get("bandit_choice_onset"),
         response_trigger={
-            left_key: settings.triggers.get("choice_left_press"),
-            right_key: settings.triggers.get("choice_right_press"),
+            left_key: settings.triggers.get("bandit_choice_left_press"),
+            right_key: settings.triggers.get("bandit_choice_right_press"),
         },
-        timeout_trigger=settings.triggers.get("choice_no_response"),
-        terminate_on_response=False,
-        highlight_stim={
-            left_key: stim_bank.get("highlight_left"),
-            right_key: stim_bank.get("highlight_right"),
-        },
-        dynamic_highlight=False,
+        timeout_trigger=settings.triggers.get("bandit_choice_no_response"),
     )
 
-    choice_key = choice.get_state("response", None)
-    choice_forced = False
-    if choice_key not in (left_key, right_key):
-        choice_key = controller.fallback_choice(left_key=left_key, right_key=right_key)
-        choice_forced = True
-        trigger_runtime.send(settings.triggers.get("choice_forced"))
+    resp_key = choice.get_state("response", None)
+    choice_made = resp_key in (left_key, right_key)
+    
+    # Update Adaptive Controller (RT control)
+    controller.update(hit=choice_made)
 
-    choice_side = "left" if choice_key == left_key else "right"
-    choice_prob = float(p_left if choice_side == "left" else p_right)
-    choice_rt = choice.get_state("response_time", None)
+    choice_forced = False
+    if not choice_made:
+        resp_key = get_fallback_choice(
+            policy=getattr(settings, "no_choice_policy", "random"),
+            left_key=left_key,
+            right_key=right_key
+        )
+        choice_forced = True
+        trigger_runtime.send(settings.triggers.get("bandit_choice_forced"))
+
+    side = "left" if resp_key == left_key else "right"
+    rt = choice.get_state("rt", None)
 
     choice.set_state(
-        choice_key=choice_key,
-        choice_side=choice_side,
-        choice_prob=choice_prob,
+        choice_key=resp_key,
+        choice_side=side,
+        choice_made=choice_made,
         choice_forced=choice_forced,
     ).to_dict(trial_data)
 
-    # phase: choice_confirmation
-    choice_label = "左侧机器" if choice_side == "left" else "右侧机器"
-    highlight_id = "highlight_left" if choice_side == "left" else "highlight_right"
-    target = (
+    # Phase 3: choice_confirmation
+    confirm_duration = float(getattr(settings, "choice_confirmation_duration", 0.4))
+    choice_label = "左侧机器" if side == "left" else "右侧机器"
+    highlight_id = "highlight_left" if side == "left" else "highlight_right"
+    confirm = (
         make_unit(unit_label="target")
         .add_stim(stim_bank.get("machine_left"))
         .add_stim(stim_bank.get("machine_right"))
@@ -183,112 +137,66 @@ def run_trial(
         .add_stim(stim_bank.get_and_format("target_prompt", choice_label=choice_label))
     )
     set_trial_context(
-        target,
+        confirm,
         trial_id=trial_id,
         phase="choice_confirmation",
-        deadline_s=_qa_scale_duration(float(settings.target_duration), win),
+        deadline_s=confirm_duration,
         valid_keys=[],
         block_id=block_id,
-        condition_id=condition_id,
-        task_factors={
-            "stage": "choice_confirmation",
-            "choice_side": choice_side,
-            "choice_prob": choice_prob,
-            "p_left": p_left,
-            "p_right": p_right,
-            "block_idx": block_idx,
-        },
+        condition_id=cond_id,
+        task_factors={"stage": "choice_confirmation", "choice_side": side, "block_idx": block_idx},
         stim_id="selection_confirmation",
     )
-    target.show(
-        duration=float(settings.target_duration),
-        onset_trigger=settings.triggers.get("target_onset"),
+    confirm.show(
+        duration=confirm_duration,
+        onset_trigger=settings.triggers.get("choice_confirmation_onset"),
     ).to_dict(trial_data)
 
-    # phase: outcome_feedback
-    reward_win = controller.draw_reward(choice_side=choice_side, p_left=p_left, p_right=p_right)
-    reward_delta = reward_win_value if reward_win else reward_loss_value
-    projected_total = int(getattr(controller, "cumulative_reward", 0)) + reward_delta
-    feedback_stim = (
-        stim_bank.get_and_format("feedback_win", reward_delta=reward_delta, total_score=projected_total)
-        if reward_win
-        else stim_bank.get_and_format("feedback_loss", reward_delta=reward_delta, total_score=projected_total)
-    )
-    feedback_trigger = (
-        settings.triggers.get("feedback_win_onset")
-        if reward_win
-        else settings.triggers.get("feedback_loss_onset")
-    )
+    # Phase 4: outcome_feedback
+    win_outcome = draw_bandit_reward(p_left, p_right, side)
+    delta = reward_win_val if win_outcome else reward_loss_val
+    total = reward_tracker.update(delta)
+    
+    feedback_duration = float(getattr(settings, "outcome_feedback_duration", 0.8))
+    stim_id_fb = "feedback_win" if win_outcome else "feedback_loss"
+    feedback_stim = stim_bank.get_and_format(stim_id_fb, reward_delta=delta, total_score=total)
+    
+    feedback_trigger = settings.triggers.get("outcome_feedback_win_onset" if win_outcome else "outcome_feedback_loss_onset")
+    
     feedback = make_unit(unit_label="feedback").add_stim(feedback_stim)
     set_trial_context(
         feedback,
         trial_id=trial_id,
         phase="outcome_feedback",
-        deadline_s=_qa_scale_duration(float(settings.feedback_duration), win),
+        deadline_s=feedback_duration,
         valid_keys=[],
         block_id=block_id,
-        condition_id=condition_id,
-        task_factors={
-            "stage": "outcome_feedback",
-            "choice_side": choice_side,
-            "reward_win": reward_win,
-            "reward_delta": reward_delta,
-            "block_idx": block_idx,
-        },
-        stim_id="feedback_win" if reward_win else "feedback_loss",
+        condition_id=cond_id,
+        task_factors={"stage": "outcome_feedback", "reward_win": win_outcome, "block_idx": block_idx},
+        stim_id=stim_id_fb,
     )
     feedback.show(
-        duration=float(settings.feedback_duration),
+        duration=feedback_duration,
         onset_trigger=feedback_trigger,
-    ).set_state(
-        reward_win=reward_win,
-        reward_delta=reward_delta,
-    ).to_dict(trial_data)
+    ).set_state(reward_win=win_outcome, reward_delta=delta, total_score=total).to_dict(trial_data)
 
-    # phase: inter_trial_interval
+    # Phase 5: iti
+    iti_duration = float(getattr(settings, "iti_duration", 0.6))
     iti = make_unit(unit_label="iti").add_stim(stim_bank.get("fixation"))
     set_trial_context(
         iti,
         trial_id=trial_id,
-        phase="inter_trial_interval",
-        deadline_s=_qa_scale_duration(float(settings.iti_duration), win),
+        phase="iti",
+        deadline_s=iti_duration,
         valid_keys=[],
         block_id=block_id,
-        condition_id=condition_id,
-        task_factors={"stage": "inter_trial_interval", "block_idx": block_idx},
+        condition_id=cond_id,
+        task_factors={"stage": "iti", "block_idx": block_idx},
         stim_id="fixation",
     )
     iti.show(
-        duration=float(settings.iti_duration),
+        duration=iti_duration,
         onset_trigger=settings.triggers.get("iti_onset"),
     ).to_dict(trial_data)
-
-    controller.update(
-        {
-            "choice_side": choice_side,
-            "choice_key": choice_key,
-            "choice_prob": choice_prob,
-            "reward_win": reward_win,
-            "reward_delta": reward_delta,
-            "p_left": p_left,
-            "p_right": p_right,
-        }
-    )
-
-    trial_data.update(
-        {
-            "trial_id": trial_id,
-            "choice_key": choice_key,
-            "choice_side": choice_side,
-            "choice_forced": choice_forced,
-            "choice_rt": choice_rt,
-            "choice_prob": choice_prob,
-            "reward_win": reward_win,
-            "reward_delta": reward_delta,
-            "total_score": int(getattr(controller, "cumulative_reward", 0)),
-            "left_reward_prob_pct": _fmt_pct(p_left),
-            "right_reward_prob_pct": _fmt_pct(p_right),
-        }
-    )
 
     return trial_data

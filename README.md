@@ -5,15 +5,15 @@
 | Field | Value |
 |---|---|
 | Name | One-Armed Bandit Task |
-| Version | v0.2.0-dev |
+| Version | v0.2.1-dev |
 | URL / Repository | https://github.com/TaskBeacon/T000020-one-armed-bandit |
 | Short Description | Two-option bandit learning task with block-wise probability reversals. |
 | Created By | TaskBeacon |
-| Date Updated | 2026-02-18 |
+| Date Updated | 2026-02-19 |
 | PsyFlow Version | 0.1.9 |
 | PsychoPy Version | 2025.1.1 |
 | Modality | Behavior |
-| Language | English |
+| Language | Chinese |
 | Voice Name | zh-CN-YunyangNeural |
 
 ## 1. Task Overview
@@ -60,7 +60,7 @@ This task implements a two-option bandit paradigm. On each trial, participants c
 | `bandit_choice` | Choice response window. |
 | `choice_confirmation` | Selected-option confirmation stage. |
 | `outcome_feedback` | Trial outcome feedback stage. |
-| `inter_trial_interval` | ITI stage. |
+| `iti` | ITI stage. |
 
 ## 3. Configuration Summary
 
@@ -99,11 +99,11 @@ This task implements a two-option bandit paradigm. On each trial, participants c
 
 | Phase | Duration |
 |---|---|
-| cue | 0.5 s |
-| choice | 2.5 s |
-| target | 0.4 s |
-| feedback | 0.8 s |
-| iti | 0.6 s |
+| pre_choice_fixation_duration | 0.5 s |
+| bandit_choice_duration | 2.5 s |
+| choice_confirmation_duration | 0.4 s |
+| outcome_feedback_duration | 0.8 s |
+| iti_duration | 0.6 s |
 
 ## 4. Methods (for academic publication)
 

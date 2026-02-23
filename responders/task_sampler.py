@@ -64,16 +64,15 @@ class TaskSamplerResponder:
             return Action(key=None, rt_s=None, meta={"source": "bandit_sampler", "reason": "rng_missing"})
 
         rt = max(self.rt_min_s, self._normal(self.rt_mean_s, self.rt_sd_s))
-        phase = str(obs.phase or "").strip().lower()
+        factors = dict(obs.task_factors or {})
+        phase = str(obs.phase or factors.get("stage") or "").strip().lower()
 
-        if phase != "anticipation":
+        if phase not in {"bandit_choice", "anticipation"}:
             if "space" in valid_keys:
                 key = "space"
             else:
                 key = valid_keys[0]
             return Action(key=key, rt_s=rt, meta={"source": "bandit_sampler", "phase": phase, "kind": "continue"})
-
-        factors = dict(obs.task_factors or {})
         p_left = self._clip_prob(factors.get("p_left", 0.5))
         p_right = self._clip_prob(factors.get("p_right", 0.5))
 
@@ -93,6 +92,7 @@ class TaskSamplerResponder:
             )
 
         logits = self.inverse_temp * (p_left - p_right) + self.bias_left
+        logits = max(-60.0, min(60.0, logits))
         prob_left = 1.0 / (1.0 + math.exp(-logits))
         choose_left = self._random() < prob_left
         preferred = self.left_key if choose_left else self.right_key

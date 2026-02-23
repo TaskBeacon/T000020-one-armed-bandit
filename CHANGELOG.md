@@ -2,6 +2,38 @@
 
 All notable development changes for `T000020-one-armed-bandit` are documented here.
 
+## [Unreleased]
+
+### Changed
+- Refactored `src/utils.py`: Renamed `Controller` to `AdaptiveController` (focused on adaptive RT control) and introduced `RewardTracker` for separate scoring logic.
+- Refactored `src/run_trial.py` to contain logic for a single trial, aligned with `task_logic_audit.md`.
+- Updated `main.py` to move block-level probability generation out of the controller.
+
+## [0.2.1-dev] - 2026-02-19
+
+### Changed
+- Refactored `src/run_trial.py` to remove template-style unit labels (`cue`, `anticipation`, `target`, `feedback`) in favor of paradigm-specific labels:
+  - `pre_choice_fixation`, `bandit_choice`, `choice_confirmation`, `outcome_feedback`, `iti`.
+- Migrated canonical timing keys in all configs:
+  - `cue_duration` -> `pre_choice_fixation_duration`
+  - `anticipation_duration` -> `bandit_choice_duration`
+  - `target_duration` -> `choice_confirmation_duration`
+  - `feedback_duration` -> `outcome_feedback_duration`
+- Migrated canonical trigger keys in all configs:
+  - `cue_onset` -> `pre_choice_fixation_onset`
+  - `choice_onset` -> `bandit_choice_onset`
+  - `choice_left_press/right_press/no_response/forced` -> `bandit_choice_left_press/right_press/no_response/forced`
+  - `target_onset` -> `choice_confirmation_onset`
+  - `feedback_win_onset/feedback_loss_onset` -> `outcome_feedback_win_onset/outcome_feedback_loss_onset`
+- Replaced template `references/task_logic_audit.md` with a task-specific manual logic audit aligned to implemented state machine and triggers.
+- Updated `references/parameter_mapping.md`, `references/stimulus_mapping.md`, and `README.md` for naming consistency and audit-to-code traceability.
+
+### Fixed
+- Standardized ITI phase/state naming to `iti` instead of `inter_trial_interval` in runtime metadata.
+- Added backward-compatible lookup in `run_trial.py` for legacy timing/trigger keys to avoid breaking older configs.
+- Fixed `block_break` formatting crash by providing `accuracy` in `main.py` block summary rendering.
+- Fixed `responders/task_sampler.py` phase routing to use `bandit_choice` (with legacy `anticipation` fallback) so sampler decisions are applied at the actual choice phase.
+
 ## [0.2.0] - 2026-02-17
 
 ### Changed

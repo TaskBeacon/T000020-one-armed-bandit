@@ -43,10 +43,10 @@ task:
   delta: 10
   seed_mode: same_across_sub
 timing:
-  cue_duration: 0.3
-  anticipation_duration: 1.2
-  target_duration: 0.2
-  feedback_duration: 0.4
+  pre_choice_fixation_duration: 0.3
+  bandit_choice_duration: 1.2
+  choice_confirmation_duration: 0.2
+  outcome_feedback_duration: 0.4
   iti_duration: 0.3
 stimuli:
   fixation:
@@ -206,15 +206,15 @@ triggers:
     exp_end: 2
     block_onset: 10
     block_end: 11
-    cue_onset: 20
-    choice_onset: 30
-    choice_left_press: 31
-    choice_right_press: 32
-    choice_no_response: 33
-    choice_forced: 34
-    target_onset: 40
-    feedback_win_onset: 50
-    feedback_loss_onset: 51
+    pre_choice_fixation_onset: 20
+    bandit_choice_onset: 30
+    bandit_choice_left_press: 31
+    bandit_choice_right_press: 32
+    bandit_choice_no_response: 33
+    bandit_choice_forced: 34
+    choice_confirmation_onset: 40
+    outcome_feedback_win_onset: 50
+    outcome_feedback_loss_onset: 51
     iti_onset: 60
   driver:
     type: serial_url

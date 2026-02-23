@@ -1,96 +1,128 @@
-# Task Logic Audit Template
-
-Use this file as `references/task_logic_audit.md` before coding.
+# Task Logic Audit: One-Armed Bandit
 
 ## 1. Paradigm Intent
 
-- Task: One-Armed Bandit (or Multi-Armed Bandit)
-- Primary construct: Decision making under uncertainty, exploration-exploitation trade-off, learning, reward processing.
-- Manipulated factors: Number of arms, reward probabilities (fixed or volatile), reward magnitudes, number of trials, feedback type.
-- Dependent measures: Choice data (arm selection), reaction times, cumulative reward, switching behavior, exploration/exploitation rates, model-derived parameters (e.g., learning rates).
-- Key citations: [To be filled in Phase 1: Discover and Filter Literature]
+- Task: `one_armed_bandit`
+- Primary construct: reinforcement learning under probabilistic outcomes with repeated binary choice.
+- Manipulated factors: block-level reward contingencies (`p_left`, `p_right`) and contingency reversals across blocks.
+- Dependent measures: choice side, response time, forced-choice incidence on timeout, reward outcome, cumulative score.
+- Key citations:
+  - `DAW2006_NATURE`
+  - `WILSON2014_JEPG`
+  - `SCHULZ2019_PNAS`
 
 ## 2. Block/Trial Workflow
 
 ### Block Structure
 
-- Total blocks: Typically 1 (or multiple if reward probabilities change over time)
-- Trials per block: E.g., 200 trials (can vary greatly)
-- Randomization/counterbalancing: Arm positions (left/right) randomized or counterbalanced across participants. Order of reward outcomes within an arm is probabilistic.
+- Total blocks: `task.total_blocks` (`4` in human profile; `1` in QA/sim smoke profiles).
+- Trials per block: `task.trial_per_block` (`40` in human profile; `12` in QA/sim).
+- Randomization/counterbalancing:
+  - `Controller.prepare_block(...)` expands block-level probability schedules into per-trial `(p_left, p_right)` tuples.
+  - `randomize_within_block=false` preserves schedule order.
+  - Block seed offset keeps deterministic reproducibility per block.
 
 ### Trial State Machine
 
-List each state in order with entry/exit conditions:
-
-1. State name: Choice Screen
-   - Onset trigger: Start of trial / end of ITI
-   - Stimuli shown: Two "arms" (e.g., images, symbols) presented side-by-side. Optional cumulative score display.
-   - Valid keys: Keys corresponding to left/right arm choice (e.g., 'F' and 'J').
-   - Timeout behavior: If no response, trial is marked as missed, proceed to ITI.
-   - Next state: Feedback Screen
-
-2. State name: Feedback Screen
-   - Onset trigger: Participant makes a choice or timeout occurs.
-   - Stimuli shown: Indication of reward (+X points) or no reward, update to cumulative score.
-   - Valid keys: None (automatic progression after fixed duration).
-   - Timeout behavior: Auto-advance after e.g., 1000ms.
-   - Next state: ITI Screen
-
-3. State name: ITI (Inter-Trial Interval) Screen
-   - Onset trigger: End of Feedback Screen.
-   - Stimuli shown: Blank screen or fixation cross.
-   - Valid keys: None (automatic progression after fixed duration).
-   - Timeout behavior: Auto-advance after e.g., 1000ms.
-   - Next state: Choice Screen (for next trial) / End of Block
+1. `pre_choice_fixation`
+   - Onset trigger: `pre_choice_fixation_onset` (`20`; fallback-compatible with `cue_onset`).
+   - Stimuli shown: central fixation (`fixation`).
+   - Valid keys: none.
+   - Timeout behavior: auto-advance after `timing.pre_choice_fixation_duration` (fallback `timing.cue_duration`).
+   - Next state: `bandit_choice`.
+2. `bandit_choice`
+   - Onset trigger: `bandit_choice_onset` (`30`; fallback-compatible with `choice_onset`).
+   - Response triggers: `bandit_choice_left_press` (`31`) and `bandit_choice_right_press` (`32`) (fallback `choice_left_press` / `choice_right_press`).
+   - Timeout trigger: `bandit_choice_no_response` (`33`) (fallback `choice_no_response`).
+   - Forced-choice marker on timeout fallback: `bandit_choice_forced` (`34`) (fallback `choice_forced`).
+   - Stimuli shown: left/right machine panels with labels and choice prompt.
+   - Valid keys: `[left_key, right_key]` (`f`, `j`).
+   - Timeout behavior: if no response, controller imputes side using `no_choice_policy`.
+   - Next state: `choice_confirmation`.
+3. `choice_confirmation`
+   - Onset trigger: `choice_confirmation_onset` (`40`; fallback-compatible with `target_onset`).
+   - Stimuli shown: same option panels + selected highlight + confirmation text.
+   - Valid keys: none.
+   - Timeout behavior: auto-advance after `timing.choice_confirmation_duration` (fallback `timing.target_duration`).
+   - Next state: `outcome_feedback`.
+4. `outcome_feedback`
+   - Onset trigger: `outcome_feedback_win_onset` (`50`) or `outcome_feedback_loss_onset` (`51`) (fallback `feedback_win_onset` / `feedback_loss_onset`).
+   - Stimuli shown: win/loss feedback with updated cumulative score.
+   - Valid keys: none.
+   - Timeout behavior: auto-advance after `timing.outcome_feedback_duration` (fallback `timing.feedback_duration`).
+   - Next state: `iti`.
+5. `iti`
+   - Onset trigger: `iti_onset` (`60`).
+   - Stimuli shown: central fixation.
+   - Valid keys: none.
+   - Timeout behavior: auto-advance after `timing.iti_duration`.
+   - Next state: next trial or block-end summary.
 
 ## 3. Condition Semantics
 
-For each condition token in `task.conditions`:
-
-- Condition ID: `arm_A`
-  - Participant-facing meaning: Represents one of the choice options.
-  - Concrete stimulus realization (visual/audio): E.g., "Blue Square" on the left side of the screen.
-  - Outcome rules: Associated with a specific reward probability (e.g., 75% chance of +10 points).
-
-- Condition ID: `arm_B`
-  - Participant-facing meaning: Represents another choice option.
-  - Concrete stimulus realization (visual/audio): E.g., "Green Circle" on the right side of the screen.
-  - Outcome rules: Associated with a specific reward probability (e.g., 25% chance of +10 points).
-
-(Note: Actual `task.conditions` will be defined in `config.yaml` and may include parameters like `reward_probability`, `reward_magnitude`, `stimulus_image_path`, etc.)
+- Condition token in config: `bandit`.
+- Participant-facing meaning: each trial presents two side-by-side machines; participant chooses one to maximize total reward.
+- Runtime condition realization:
+  - Effective condition ID is trial-specific probability signature (for example `L75_R25`) generated from controller schedule.
+  - Each trial carries `p_left` and `p_right`, used for stochastic reward sampling on chosen side.
 
 ## 4. Response and Scoring Rules
 
-- Response mapping: Key presses (e.g., 'F' for left arm, 'J' for right arm) map directly to arm selection.
-- Missing-response policy: If no response within the allotted time for the Choice Screen, the trial is marked as a missed response. No reward is given. Proceed to ITI.
-- Correctness logic: There is no "correct" or "incorrect" response in the traditional sense, as outcomes are probabilistic. The participant's goal is to maximize total reward.
-- Reward/penalty updates: A reward (e.g., +10 points) is probabilistically delivered based on the chosen arm's reward probability. No explicit penalties other than not receiving a reward. The cumulative score is updated after each trial.
-- Running metrics:
-    - Choice per trial (which arm was selected)
-    - Reaction time per choice
-    - Outcome per trial (rewarded/not rewarded)
-    - Cumulative reward
-    - (Derived: proportion of choices for each arm over time, switching behavior, etc.)
+- Response mapping:
+  - `f` -> left machine
+  - `j` -> right machine
+- Missing-response policy:
+  - If no key in `bandit_choice` deadline, controller imputes a choice (`no_choice_policy`).
+  - Trial is marked `choice_forced=true` and `bandit_choice_forced` trigger is emitted.
+- Correctness logic:
+  - No objective correct side; both keys are valid actions under uncertainty.
+- Reward update:
+  - Bernoulli reward draw from chosen-side probability.
+  - Reward delta: `reward_win` (default `10`) on win, `reward_loss` (default `0`) on loss.
+  - Controller updates cumulative score after each trial.
+- Logged outputs:
+  - `choice_key`, `choice_side`, `choice_rt`, `choice_forced`
+  - `p_left`, `p_right`, `choice_prob`
+  - `reward_win`, `reward_delta`, `total_score`
 
 ## 5. Stimulus Layout Plan
 
-For every screen with multiple simultaneous options/stimuli:
-
-- Screen name:
-- Stimulus IDs shown together:
-- Layout anchors (`pos`):
-- Size/spacing (`height`, width, wrap):
-- Readability/overlap checks:
-- Rationale:
+- Screen: `bandit_choice`
+  - Stimulus IDs shown: `machine_left`, `machine_right`, `machine_left_label`, `machine_right_label`, `choice_prompt`
+  - Layout anchors: left option at `[-230, 20]`, right option at `[230, 20]`, prompt at `[0, -210]`
+  - Size/spacing: machine cards `240x300`, highlight frames `270x330`, center-to-center separation `460`
+  - Readability checks: labels centered within cards, prompt below card row with clear vertical separation
+  - Rationale: symmetric binary layout avoids implicit side bias and matches canonical two-option bandit display
+- Screen: `choice_confirmation`
+  - Stimulus IDs shown: all choice-screen elements + selected `highlight_left/right` + `target_prompt`
+  - Layout anchors: highlight overlays card position; confirmation text at `[0, 210]`
+  - Size/spacing: confirmation text height `36`, wrap width `980`
+  - Readability checks: confirmation text does not overlap cards/labels
+  - Rationale: brief explicit confirmation separates motor response from feedback onset for cleaner event timing
 
 ## 6. Trigger Plan
 
-Map each phase/state to trigger code and semantics.
+- Experiment:
+  - `exp_onset` = 1
+  - `exp_end` = 2
+- Block:
+  - `block_onset` = 10
+  - `block_end` = 11
+- Trial:
+  - `pre_choice_fixation` onset -> `pre_choice_fixation_onset` = 20 (fallback: `cue_onset`)
+  - `bandit_choice` onset -> `bandit_choice_onset` = 30 (fallback: `choice_onset`)
+  - `bandit_choice` responses -> `bandit_choice_left_press` = 31 / `bandit_choice_right_press` = 32 (fallback: `choice_left_press` / `choice_right_press`)
+  - `bandit_choice` timeout -> `bandit_choice_no_response` = 33 (fallback: `choice_no_response`)
+  - `bandit_choice` imputation marker -> `bandit_choice_forced` = 34 (fallback: `choice_forced`)
+  - `choice_confirmation` onset -> `choice_confirmation_onset` = 40 (fallback: `target_onset`)
+  - `outcome_feedback` onset -> `outcome_feedback_win_onset` = 50 / `outcome_feedback_loss_onset` = 51 (fallback: `feedback_win_onset` / `feedback_loss_onset`)
+  - `iti` onset -> `iti_onset` = 60
 
 ## 7. Inference Log
 
-List any inferred decisions not directly specified by references:
-
-- Decision:
-- Why inference was required:
-- Citation-supported rationale:
+- Decision: keep explicit `choice_confirmation` stage between response and feedback.
+  - Why inference was required: core papers specify choice and outcome events but not a mandatory visual confirmation epoch.
+  - Citation-supported rationale: improves event separability for behavior/EEG timing while preserving reinforcement-learning structure.
+- Decision: use discrete score mapping (`+10` win / `+0` loss).
+  - Why inference was required: literature reports reward contingencies but not a unique UI scoring format.
+  - Citation-supported rationale: simple deterministic scoring is faithful to binary outcome structure and supports participant comprehension.

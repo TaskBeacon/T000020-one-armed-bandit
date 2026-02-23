@@ -20,7 +20,7 @@ from psyflow import (
     runtime_context,
 )
 
-from src import Controller, run_trial
+from src import AdaptiveController, RewardTracker, generate_bandit_schedule, run_trial
 
 
 def _make_qa_trigger_runtime():
@@ -106,7 +106,8 @@ def _run_impl(*, mode: str, output_dir: Path | None, cfg: dict, participant_id: 
     # 7. Setup controller across blocks
     settings.controller = cfg["controller_config"]
     settings.save_to_json()
-    controller = Controller.from_dict(settings.controller)
+    controller = AdaptiveController.from_dict(settings.controller)
+    reward_tracker = RewardTracker()
 
     trigger_runtime.send(settings.triggers.get("exp_onset"))
 
@@ -124,10 +125,11 @@ def _run_impl(*, mode: str, output_dir: Path | None, cfg: dict, participant_id: 
         if mode not in ("qa", "sim"):
             count_down(win, 3, color="black")
 
-        planned_conditions = controller.prepare_block(
+        planned_conditions = generate_bandit_schedule(
             block_idx=block_i,
             n_trials=int(settings.trials_per_block),
             seed=int(settings.block_seed[block_i]),
+            block_probabilities=cfg.get("controller_config", {}).get("block_probabilities", [])
         )
 
         block = (
@@ -146,6 +148,7 @@ def _run_impl(*, mode: str, output_dir: Path | None, cfg: dict, participant_id: 
                         run_trial,
                         stim_bank=stim_bank,
                         controller=controller,
+                        reward_tracker=reward_tracker,
                         trigger_runtime=trigger_runtime,
                         block_id=f"block_{block_i}",
                         block_idx=block_i,
@@ -160,12 +163,14 @@ def _run_impl(*, mode: str, output_dir: Path | None, cfg: dict, participant_id: 
         n_block = max(1, len(block_trials))
         left_rate = sum(1 for trial in block_trials if trial.get("choice_side") == "left") / n_block
         win_rate = sum(1 for trial in block_trials if trial.get("reward_win", False)) / n_block
+        accuracy = sum(1 for trial in block_trials if not trial.get("choice_forced", False)) / n_block
         total_score = sum(int(trial.get("reward_delta", 0) or 0) for trial in block_trials)
         StimUnit("block", win, kb, runtime=trigger_runtime).add_stim(
             stim_bank.get_and_format(
                 "block_break",
                 block_num=block_i + 1,
                 total_blocks=settings.total_blocks,
+                accuracy=accuracy,
                 left_rate=left_rate,
                 win_rate=win_rate,
                 total_score=total_score,
