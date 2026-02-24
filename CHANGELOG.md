@@ -8,6 +8,8 @@ All notable development changes for `T000020-one-armed-bandit` are documented he
 - Refactored `src/utils.py`: Removed adaptive RT logic; introduced `RewardTracker` for separate scoring logic and moved static schedule generation to `generate_bandit_schedule`.
 - Refactored `src/run_trial.py` to contain logic for a single trial with fixed durations, aligned with `task_logic_audit.md`.
 - Updated `main.py` to use `RewardTracker` and fixed-period trial flow.
+- Removed unnecessary top-level `controller` config usage in favor of `condition_generation` settings and explicit `no_choice_policy` wiring in `main.py`.
+- Renamed internal `StimUnit` labels in `src/run_trial.py` to match actual task phases (`pre_choice_fixation`, `bandit_choice`, `choice_confirmation`, `outcome_feedback`).
 
 ## [0.2.1-dev] - 2026-02-19
 

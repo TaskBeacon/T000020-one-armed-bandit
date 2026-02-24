@@ -37,7 +37,7 @@
    - Forced-choice marker on timeout fallback: `bandit_choice_forced` (`34`) (fallback `choice_forced`).
    - Stimuli shown: left/right machine panels with labels and choice prompt.
    - Valid keys: `[left_key, right_key]` (`f`, `j`).
-   - Timeout behavior: if no response, controller imputes side using `no_choice_policy`.
+   - Timeout behavior: if no response, task no-response policy imputes side using `no_choice_policy`.
    - Next state: `choice_confirmation`.
 3. `choice_confirmation`
    - Onset trigger: `choice_confirmation_onset` (`40`; fallback-compatible with `target_onset`).
@@ -63,7 +63,7 @@
 - Condition token in config: `bandit`.
 - Participant-facing meaning: each trial presents two side-by-side machines; participant chooses one to maximize total reward.
 - Runtime condition realization:
-  - Effective condition ID is trial-specific probability signature (for example `L75_R25`) generated from controller schedule.
+  - Effective condition ID is trial-specific probability signature (for example `L75_R25`) generated from the condition schedule.
   - Each trial carries `p_left` and `p_right`, used for stochastic reward sampling on chosen side.
 
 ## 4. Response and Scoring Rules
@@ -72,7 +72,7 @@
   - `f` -> left machine
   - `j` -> right machine
 - Missing-response policy:
-  - If no key in `bandit_choice` deadline, controller imputes a choice (`no_choice_policy`).
+  - If no key in `bandit_choice` deadline, no-response policy imputes a choice (`no_choice_policy`).
   - Trial is marked `choice_forced=true` and `bandit_choice_forced` trigger is emitted.
 - Correctness logic:
   - No objective correct side; both keys are valid actions under uncertainty.

@@ -15,5 +15,5 @@
 ## Protocol Mapping Notes
 
 - Trial logic follows standard human bandit workflow: repeated discrete choice -> probabilistic outcome feedback -> iterative learning.
-- Option-specific reward probabilities are implemented at the controller level and can reverse across blocks.
+- Option-specific reward probabilities are implemented at the condition-scheduling level and can reverse across blocks.
 - Reported behavioral outputs focus on option choice rates, reward rates, and response time, consistent with exploration-exploitation analyses.

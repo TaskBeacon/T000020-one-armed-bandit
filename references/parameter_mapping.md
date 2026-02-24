@@ -12,8 +12,8 @@
 | `timing.choice_confirmation_duration` | `0.4` | `inferred` | `inferred` | Short confirmation epoch after response selection. |
 | `timing.outcome_feedback_duration` | `0.8` | `DAW2006_NATURE` | `inferred` | Explicit outcome feedback period. |
 | `timing.iti_duration` | `0.6` | `inferred` | `inferred` | Short ITI balances pacing and temporal separation. |
-| `controller.block_probabilities` | `[[0.75/0.25],[0.25/0.75],[0.65/0.35],[0.35/0.65]]` | `SCHULZ2019_PNAS` | `inferred` | Structured block-wise reward asymmetry and reversals for adaptive learning. |
-| `controller.no_choice_policy` | `random` | `inferred` | `inferred` | Avoid deterministic bias when no response occurs. |
+| `condition_generation.block_probabilities` | `[[0.75/0.25],[0.25/0.75],[0.65/0.35],[0.35/0.65]]` | `SCHULZ2019_PNAS` | `inferred` | Structured block-wise reward asymmetry and reversals for adaptive learning. |
+| `condition_generation.no_choice_policy` | `random` | `inferred` | `inferred` | Avoid deterministic bias when no response occurs. |
 | `triggers.map.pre_choice_fixation_onset` | `20` | `inferred` | `inferred` | Phase onset trigger for pre-choice fixation. |
 | `triggers.map.bandit_choice_onset` | `30` | `inferred` | `inferred` | Phase onset trigger for choice window. |
 | `triggers.map.choice_confirmation_onset` | `40` | `inferred` | `inferred` | Phase onset trigger for confirmation display. |

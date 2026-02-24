@@ -34,7 +34,7 @@ def run_trial(
 
     # Phase 1: pre_choice_fixation
     duration = float(getattr(settings, "pre_choice_fixation_duration", 0.5))
-    cue = make_unit(unit_label="cue").add_stim(stim_bank.get("fixation"))
+    cue = make_unit(unit_label="pre_choice_fixation").add_stim(stim_bank.get("fixation"))
     set_trial_context(
         cue,
         trial_id=trial_id,
@@ -54,7 +54,7 @@ def run_trial(
     # Phase 2: bandit_choice (Fixed Duration)
     decision_duration = float(getattr(settings, "bandit_choice_duration", 2.5))
     choice = (
-        make_unit(unit_label="anticipation")
+        make_unit(unit_label="bandit_choice")
         .add_stim(stim_bank.get("machine_left"))
         .add_stim(stim_bank.get("machine_right"))
         .add_stim(stim_bank.get("machine_left_label"))
@@ -124,7 +124,7 @@ def run_trial(
     choice_label = "左侧机器" if side == "left" else "右侧机器"
     highlight_id = "highlight_left" if side == "left" else "highlight_right"
     confirm = (
-        make_unit(unit_label="target")
+        make_unit(unit_label="choice_confirmation")
         .add_stim(stim_bank.get("machine_left"))
         .add_stim(stim_bank.get("machine_right"))
         .add_stim(stim_bank.get("machine_left_label"))
@@ -159,7 +159,7 @@ def run_trial(
     
     feedback_trigger = settings.triggers.get("outcome_feedback_win_onset" if win_outcome else "outcome_feedback_loss_onset")
     
-    feedback = make_unit(unit_label="feedback").add_stim(feedback_stim)
+    feedback = make_unit(unit_label="outcome_feedback").add_stim(feedback_stim)
     set_trial_context(
         feedback,
         trial_id=trial_id,

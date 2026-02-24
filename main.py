@@ -34,7 +34,7 @@ DEFAULT_CONFIG_BY_MODE = {
 def run(options: TaskRunOptions):
     """Run One-Armed Bandit task in human/qa/sim mode with one auditable flow."""
     task_root = Path(__file__).resolve().parent
-    cfg = load_config(str(options.config_path))
+    cfg = load_config(str(options.config_path), extra_keys=["condition_generation"])
     
     output_dir: Path | None = None
     runtime_scope = nullcontext()
@@ -70,20 +70,24 @@ def run(options: TaskRunOptions):
             settings.log_file = str(output_dir / "qa_psychopy.log")
             settings.json_file = str(output_dir / "qa_settings.json")
 
-        # 4. Setup triggers
+        # 4. Task-specific static behavior config (not an adaptive controller)
+        condition_generation = cfg.get("condition_generation_config", {})
+        settings.no_choice_policy = str(condition_generation.get("no_choice_policy", "random"))
+
+        # 5. Setup triggers
         settings.triggers = cfg["trigger_config"]
         trigger_runtime = initialize_triggers(mock=True) if options.mode in ("qa", "sim") else initialize_triggers(cfg)
 
-        # 5. Set up window & input
+        # 6. Set up window & input
         win, kb = initialize_exp(settings)
 
-        # 6. Setup stimulus bank
+        # 7. Setup stimulus bank
         stim_bank = StimBank(win, cfg["stim_config"])
         if options.mode not in ("qa", "sim"):
             stim_bank = stim_bank.convert_to_voice("instruction_text")
         stim_bank = stim_bank.preload_all()
 
-        # 7. Setup tracker
+        # 8. Setup tracker
         reward_tracker = RewardTracker()
 
         trigger_runtime.send(settings.triggers.get("exp_onset"))
@@ -105,7 +109,7 @@ def run(options: TaskRunOptions):
                 block_idx=block_i,
                 n_trials=int(settings.trials_per_block),
                 seed=int(settings.block_seed[block_i]),
-                block_probabilities=cfg.get("controller_config", {}).get("block_probabilities", [])
+                block_probabilities=condition_generation.get("block_probabilities", []),
             )
 
             block = (

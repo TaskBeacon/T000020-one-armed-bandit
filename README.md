@@ -27,8 +27,8 @@ This task implements a two-option bandit paradigm. On each trial, participants c
 | Step | Description |
 |---|---|
 | 1. Parse mode/config | `main.py` loads runtime mode and YAML config. |
-| 2. Initialize runtime | Window, keyboard, trigger runtime, stimulus bank, and controller are initialized. |
-| 3. Prepare block schedule | Controller prepares per-trial `(p_left, p_right)` schedule for the block. |
+| 2. Initialize runtime | Window, keyboard, trigger runtime, stimulus bank, and task schedule settings are initialized. |
+| 3. Prepare block schedule | Condition-generation settings prepare per-trial `(p_left, p_right)` schedule for the block. |
 | 4. Execute trials | `BlockUnit(...).run_trial(...)` executes all planned trials. |
 | 5. Block summary | Choice rates and reward metrics are displayed. |
 | 6. Final summary | Final cumulative metrics are shown and data are saved. |
@@ -47,10 +47,11 @@ This task implements a two-option bandit paradigm. On each trial, participants c
 
 | Component | Description |
 |---|---|
+| Architecture note | No adaptive controller object is used; static condition-generation settings and task utilities drive scheduling/outcomes. |
 | Block probabilities | Per-block left/right reward probabilities are configured. |
 | Reward sampling | Bernoulli draw from selected-side probability. |
 | No-response fallback | Optional policy imputes a choice when no response is made. |
-| State tracking | Tracks completed trials and cumulative reward. |
+| State tracking | `RewardTracker` tracks cumulative reward. |
 
 ### Runtime Context Phases
 

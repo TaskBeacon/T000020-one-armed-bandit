@@ -224,7 +224,7 @@ triggers:
     post_delay_ms: 1
   policy:
     strict: false
-controller:
+condition_generation:
   block_probabilities:
   - left: 0.75
     right: 0.25
