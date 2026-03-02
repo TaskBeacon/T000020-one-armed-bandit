@@ -4,75 +4,37 @@ selection_policy: high_impact_plus_high_citation_open_access_when_available
 citation_threshold: 100
 papers:
   - id: DAW2006_NATURE
-    title: Cortical substrates for exploratory decisions in humans
-    authors:
-      - Nathaniel D. Daw
-      - John P. O'Doherty
-      - Peter Dayan
-      - Ben Seymour
-      - Raymond J. Dolan
+    title: "Cortical substrates for exploratory decisions in humans"
     year: 2006
-    journal: Nature
-    doi_or_url: https://doi.org/10.1038/nature04766
+    journal: "Nature"
+    doi_or_url: "https://doi.org/10.1038/nature04766"
     citation_count: 1000
-    is_high_impact: true
     open_access: true
+    is_high_impact: true
     used_for:
       - task_workflow
       - probabilistic_outcome_design
       - block_level_learning
-    parameter_bindings:
-      block_design: repeated bandit choices with feedback
-      outcome_rule: Bernoulli draw from action-specific probability
-    notes: foundational human bandit exploration paper
-
   - id: WILSON2014_JEPG
-    title: Humans use directed and random exploration to solve the explore-exploit dilemma
-    authors:
-      - Robert C. Wilson
-      - Andra Geana
-      - John M. White
-      - Elliot A. Ludvig
-      - Jonathan D. Cohen
+    title: "Humans use directed and random exploration to solve the explore-exploit dilemma"
     year: 2014
-    journal: Journal of Experimental Psychology: General
-    doi_or_url: https://doi.org/10.1037/a0038199
+    journal: "Journal of Experimental Psychology: General"
+    doi_or_url: "https://doi.org/10.1037/a0038199"
     citation_count: 600
-    is_high_impact: false
     open_access: true
+    is_high_impact: false
     used_for:
       - choice_stage_design
       - trial_count_rationale
       - behavioral_metrics
-    parameter_bindings:
-      core_metrics:
-        - option choice rate
-        - reward rate
-        - response time
-    notes: supports explore/exploit interpretation of repeated choices
-
   - id: SCHULZ2019_PNAS
-    title: Structured, uncertainty-driven exploration in real-world consumer choice
-    authors:
-      - Eric Schulz
-      - Rahul Bhui
-      - Bradley C. Love
-      - Bastien Brier
-      - Michael T. Todd
-      - Samuel J. Gershman
+    title: "Structured, uncertainty-driven exploration in real-world consumer choice"
     year: 2019
-    journal: Proceedings of the National Academy of Sciences
-    doi_or_url: https://doi.org/10.1073/pnas.1821028116
+    journal: "Proceedings of the National Academy of Sciences"
+    doi_or_url: "https://doi.org/10.1073/pnas.1821028116"
     citation_count: 100
-    is_high_impact: true
     open_access: true
+    is_high_impact: true
     used_for:
       - reward_probability_conditioning
       - model_based_sampler_design
-    parameter_bindings:
-      block_probabilities:
-        - left: 0.75
-          right: 0.25
-        - left: 0.25
-          right: 0.75
-    notes: motivates probability-structured options and sampler behavior

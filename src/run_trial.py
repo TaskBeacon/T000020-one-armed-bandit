@@ -21,6 +21,7 @@ def run_trial(
     cond_id = f"L{int(round(p_left * 100)):02d}_R{int(round(p_right * 100)):02d}"
     
     trial_data = {
+        "trial_id": trial_id,
         "condition": cond_id,
         "p_left": p_left,
         "p_right": p_right,
@@ -31,6 +32,8 @@ def run_trial(
     right_key = str(getattr(settings, "right_key", "j"))
     reward_win_val = int(getattr(settings, "reward_win", 10))
     reward_loss_val = int(getattr(settings, "reward_loss", 0))
+    left_choice_label = str(getattr(stim_bank.get("machine_left_label"), "text", "左侧机器"))
+    right_choice_label = str(getattr(stim_bank.get("machine_right_label"), "text", "右侧机器"))
 
     # Phase 1: pre_choice_fixation
     duration = float(getattr(settings, "pre_choice_fixation_duration", 0.5))
@@ -121,7 +124,7 @@ def run_trial(
 
     # Phase 3: choice_confirmation
     confirm_duration = float(getattr(settings, "choice_confirmation_duration", 0.4))
-    choice_label = "左侧机器" if side == "left" else "右侧机器"
+    choice_label = left_choice_label if side == "left" else right_choice_label
     highlight_id = "highlight_left" if side == "left" else "highlight_right"
     confirm = (
         make_unit(unit_label="choice_confirmation")
@@ -194,5 +197,17 @@ def run_trial(
         duration=iti_duration,
         onset_trigger=settings.triggers.get("iti_onset"),
     ).to_dict(trial_data)
+
+    # Canonical trial-level columns required by QA/trace contracts.
+    trial_data.update(
+        {
+            "choice_key": resp_key,
+            "choice_side": side,
+            "choice_rt": rt,
+            "reward_win": win_outcome,
+            "reward_delta": delta,
+            "total_score": total,
+        }
+    )
 
     return trial_data
