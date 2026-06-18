@@ -1,5 +1,7 @@
 from __future__ import annotations
 from functools import partial
+import random
+
 from psyflow import StimUnit, set_trial_context, next_trial_id
 from .utils import draw_bandit_reward, get_fallback_choice
 
@@ -19,12 +21,17 @@ def run_trial(
     # condition is (p_left, p_right)
     p_left, p_right = float(condition[0]), float(condition[1])
     cond_id = f"L{int(round(p_left * 100)):02d}_R{int(round(p_right * 100)):02d}"
+    block_seed = int(settings.block_seed[int(block_idx or 0)])
+    trial_seed = (block_seed * 1000) + int(trial_id)
+    fallback_rng = random.Random(trial_seed + 17)
+    reward_rng = random.Random(trial_seed + 31)
     
     trial_data = {
         "trial_id": trial_id,
         "condition": cond_id,
         "p_left": p_left,
         "p_right": p_right,
+        "trial_seed": trial_seed,
     }
     make_unit = partial(StimUnit, win=win, kb=kb, runtime=trigger_runtime)
 
@@ -107,7 +114,8 @@ def run_trial(
         resp_key = get_fallback_choice(
             policy=getattr(settings, "no_choice_policy", "random"),
             left_key=left_key,
-            right_key=right_key
+            right_key=right_key,
+            rng=fallback_rng,
         )
         choice_forced = True
         trigger_runtime.send(settings.triggers.get("bandit_choice_forced"))
@@ -152,7 +160,7 @@ def run_trial(
     ).to_dict(trial_data)
 
     # Phase 4: outcome_feedback
-    win_outcome = draw_bandit_reward(p_left, p_right, side)
+    win_outcome = draw_bandit_reward(p_left, p_right, side, rng=reward_rng)
     delta = reward_win_val if win_outcome else reward_loss_val
     total = reward_tracker.update(delta)
     

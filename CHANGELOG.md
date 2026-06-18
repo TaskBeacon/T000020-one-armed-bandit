@@ -10,6 +10,7 @@ All notable development changes for `T000020-one-armed-bandit` are documented he
 - Updated `main.py` to use `RewardTracker` and fixed-period trial flow.
 - Removed unnecessary top-level `controller` config usage in favor of `condition_generation` settings and explicit `no_choice_policy` wiring in `main.py`.
 - Renamed internal `StimUnit` labels in `src/run_trial.py` to match actual task phases (`pre_choice_fixation`, `bandit_choice`, `choice_confirmation`, `outcome_feedback`).
+- Seeded timeout fallback choice and stochastic reward draws from stable block/trial seeds for reproducible traces.
 
 ## [0.2.1-dev] - 2026-02-19
 
