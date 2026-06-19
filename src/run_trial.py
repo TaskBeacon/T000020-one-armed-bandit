@@ -5,6 +5,15 @@ import random
 from psyflow import StimUnit, set_trial_context, next_trial_id
 from .utils import draw_bandit_reward, get_fallback_choice
 
+
+def _stim_text(stim_bank, stim_id: str) -> str:
+    stim = stim_bank.get(stim_id)
+    text = getattr(stim, "text", None)
+    if text is None:
+        raise ValueError(f"Stimulus {stim_id!r} must define config text for participant-facing labels.")
+    return str(text)
+
+
 def run_trial(
     win,
     kb,
@@ -39,8 +48,8 @@ def run_trial(
     right_key = str(getattr(settings, "right_key", "j"))
     reward_win_val = int(getattr(settings, "reward_win", 10))
     reward_loss_val = int(getattr(settings, "reward_loss", 0))
-    left_choice_label = str(getattr(stim_bank.get("machine_left_label"), "text", "左侧机器"))
-    right_choice_label = str(getattr(stim_bank.get("machine_right_label"), "text", "右侧机器"))
+    left_choice_label = _stim_text(stim_bank, "machine_left_label")
+    right_choice_label = _stim_text(stim_bank, "machine_right_label")
 
     # Phase 1: pre_choice_fixation
     duration = float(getattr(settings, "pre_choice_fixation_duration", 0.5))

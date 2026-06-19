@@ -11,6 +11,7 @@ All notable development changes for `T000020-one-armed-bandit` are documented he
 - Removed unnecessary top-level `controller` config usage in favor of `condition_generation` settings and explicit `no_choice_policy` wiring in `main.py`.
 - Renamed internal `StimUnit` labels in `src/run_trial.py` to match actual task phases (`pre_choice_fixation`, `bandit_choice`, `choice_confirmation`, `outcome_feedback`).
 - Seeded timeout fallback choice and stochastic reward draws from stable block/trial seeds for reproducible traces.
+- Removed participant-facing fallback machine labels from runtime code; labels now fail fast if config text is missing.
 
 ## [0.2.1-dev] - 2026-02-19
 
