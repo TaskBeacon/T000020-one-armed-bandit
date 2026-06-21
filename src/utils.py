@@ -34,9 +34,11 @@ def draw_bandit_reward(p_left: float, p_right: float, choice_side: str, rng: Opt
     """
     Stochastically draw a reward based on the chosen side.
     """
+    if rng is None:
+        raise ValueError("draw_bandit_reward requires a seeded rng.")
     p = float(p_left) if choice_side == "left" else float(p_right)
     p = max(0.0, min(1.0, p))
-    draw = rng.random() if rng else random.random()
+    draw = rng.random()
     return draw < p
 
 def get_fallback_choice(policy: str, left_key: str, right_key: str, rng: Optional[random.Random] = None) -> str:
@@ -49,5 +51,6 @@ def get_fallback_choice(policy: str, left_key: str, right_key: str, rng: Optiona
     if policy == "right":
         return right_key
     
-    _rng = rng or random.Random()
-    return left_key if _rng.random() < 0.5 else right_key
+    if rng is None:
+        raise ValueError("random fallback choice requires a seeded rng.")
+    return left_key if rng.random() < 0.5 else right_key
